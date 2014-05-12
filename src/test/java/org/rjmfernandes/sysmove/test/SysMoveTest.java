@@ -16,6 +16,7 @@ import org.alfresco.service.cmr.security.MutableAuthenticationService;
 import org.alfresco.service.cmr.security.PermissionService;
 import org.alfresco.service.cmr.security.PersonService;
 import org.alfresco.service.namespace.QName;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -44,6 +45,7 @@ public class SysMoveTest
 	private NodeRef docNode;
 	private NodeRef targetFolder;
 	private NodeRef originalFolder;
+	private NodeRef personNode;
 	private String testUserName;
 
 	@Autowired
@@ -62,12 +64,33 @@ public class SysMoveTest
 	@Qualifier("sysMover")
 	protected SysMover sysMover;
 
+	@After
+	public void tearDown()
+	{
+		final NodeService nodeService = serviceRegistry.getNodeService();
+		final PersonService personService = serviceRegistry.getPersonService();
+		RetryingTransactionCallback<Object> txnWork = new RetryingTransactionCallback<Object>()
+		{
+			public Object execute() throws Exception
+			{
+				authenticationComponent.setSystemUserAsCurrentUser();
+				nodeService.deleteNode(targetFolder);
+				nodeService.deleteNode(originalFolder);
+				personService.deletePerson(personNode);
+				return null;
+			}
+
+		};
+		serviceRegistry.getTransactionService().getRetryingTransactionHelper()
+		        .doInTransaction(txnWork, false, false);
+	}
+
 	@Before
 	public void setUp()
 	{
 		long currentTime = System.currentTimeMillis();
 		final String originalFolderName = "original_folder_" + currentTime;
-		final String documentName = "originla_document_" + currentTime;
+		final String documentName = "original_document_" + currentTime;
 		final String targetFolderName = "target_folder_" + currentTime;
 		testUserName = "test_user_" + currentTime;
 		final FileFolderService fileFolderService = serviceRegistry
@@ -134,8 +157,8 @@ public class SysMoveTest
 		properties.put(ContentModel.PROP_PASSWORD, testUserName);
 		properties.put(ContentModel.PROP_FIRSTNAME, testUserName);
 		properties.put(ContentModel.PROP_LASTNAME, testUserName);
-		NodeRef newPerson = personService.createPerson(properties);
-		permissionService.setPermission(newPerson, testUserName,
+		personNode = personService.createPerson(properties);
+		permissionService.setPermission(personNode, testUserName,
 		        permissionService.getAllPermission(), true);
 		authenticationService.createAuthentication(testUserName,
 		        testUserName.toCharArray());
